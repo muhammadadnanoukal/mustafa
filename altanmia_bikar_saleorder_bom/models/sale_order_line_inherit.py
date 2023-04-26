@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
-    estimated_installation_date_total = fields.Float(string="Estimated Installation Date", store=True, tracking=4,
+    estimated_installation_date_total = fields.Float(string="Estimated Installation Days", store=True, tracking=4,
                                                      readonly=True, compute='_compute_installation_amounts')
 
 
@@ -67,11 +67,6 @@ class SaleOrderLine(models.Model):
                 bom = boms_by_product[sol.product_id]
                 sol.bom_id = bom.id or False
 
-    @api.onchange('bom_id')
-    def _onchange_bom_id(self):
-        for record in self:
-            record.product_id = record.bom_id.product_id
-
     @api.onchange('price_unit')
     def _onchange_total_amount(self):
         for line in self:
@@ -92,12 +87,9 @@ class SaleOrderLine(models.Model):
 
     @api.onchange('bom_id')
     def _onchange_bom_id(self):
-        self.bom_id.sequence = 0
-        seq_num = 1
-        for bom in self.product_template_id.bom_ids:
-            if bom.id != self.bom_id.id:
-                bom.sequence = seq_num
-                seq_num += 1
+        for record in self:
+            if record.bom_id and record.bom_id.product_id:
+                record.product_id = record.bom_id.product_id
 
     @api.depends('product_uom_qty', 'qty_delivered', 'product_id', 'state')
     def _compute_qty_to_deliver(self):

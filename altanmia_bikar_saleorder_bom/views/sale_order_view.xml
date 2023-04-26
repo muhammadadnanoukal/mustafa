@@ -7,8 +7,13 @@
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//tree[1]/field[@name='product_template_id']" position="after">
+                    <field name="pricelist_id" invisible="1"/>
                     <field name="bom_id"
-                           context="{'default_product_tmpl_id': product_template_id, 'new_product_variant':True}"
+                           context="{
+                           'default_product_tmpl_id': product_template_id,
+                           'new_product_variant':True,
+                           'form_view_ref': 'altanmia_bikar_saleorder_bom.mrp_bom_form_view_inherit_extension',
+                           'default_pricelist_id': pricelist_id}"
                            attrs="{'readonly': [('state', '!=', 'draft')]}"
                            optional="show"
                            options="{'no_quick_create': True}"/>

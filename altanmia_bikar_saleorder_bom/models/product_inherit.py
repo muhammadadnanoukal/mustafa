@@ -3,7 +3,7 @@ from odoo import fields, models, _
 class ProductTemplate(models.Model):
     _inherit = "product.template"
 
-    estimated_installation_date_tmpl = fields.Float(string='Estimated Installation Date', store=True, )
+    estimated_installation_date_tmpl = fields.Float(string='Estimated Installation Days', store=True, )
     pricing_type_square_tmpl = fields.Boolean('Square Meter', default=True, )
     pricing_type_component_tmpl = fields.Boolean('Component', default=False, )
 

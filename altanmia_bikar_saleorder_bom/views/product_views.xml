@@ -17,5 +17,16 @@
                 </xpath>
             </field>
         </record>
+
+        <record id="mrp_form_view_inherit_extension" model="ir.ui.view">
+            <field name="name">mrp.form.view.inherit.extension</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="mrp.view_mrp_product_template_form_inherited"/>
+            <field name="arch" type="xml">
+                <xpath expr="//label[@for='days_to_prepare_mo']" position="before">
+                    <field name="estimated_installation_date_tmpl" string="Estimated Installation Days" force_save="1"/>
+                </xpath>
+            </field>
+        </record>
     </data>
 </odoo>
