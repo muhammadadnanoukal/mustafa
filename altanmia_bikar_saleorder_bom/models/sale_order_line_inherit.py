@@ -81,7 +81,7 @@ class SaleOrderLine(models.Model):
     @api.onchange('product_uom_qty', 'bom_id')
     def _compute_estimated_installation_date_total(self):
         for rec in self:
-            rec.total_installation_date = rec.bom_id.total_installation_days
+            rec.total_installation_date = rec.bom_id.total_installation_date
             rec.total_installation_date = rec.total_installation_date * rec.product_uom_qty
 
     @api.onchange('product_template_id', 'bom_id')
@@ -122,8 +122,7 @@ class SaleOrderLine(models.Model):
                     bom_id = [line.bom_id.id] if line.bom_id else False
                     boms = \
                         boms._bom_find(line.product_id, company_id=line.company_id.id,
-                                       bom_type=['phantom'],
-                                       bom_ids=bom_id)[
+                                       bom_type=['phantom'])[
                             line.product_id]
                 relevant_bom = boms.filtered(
                     lambda b: (b.type == 'phantom') and

@@ -10,14 +10,31 @@ class MrpBom(models.Model):
     code = fields.Char('Reference')
     pricing_type_square = fields.Boolean('Square Meter', default=True, )
     pricing_type_component = fields.Boolean('Component', default=False, )
-    total_installation_days = fields.Float('Total Installation Date', compute='_compute_installation_amount',
+    total_installation_date = fields.Float('Total Installation Date', compute='_compute_installation_amount',
                                            store=True, tracking=True)
     total_amount = fields.Float('Total Amount', compute='_compute_amount', store=True, tracking=True)
 
-    @api.depends('bom_line_ids.estimated_installation_days')
+    @api.depends('bom_line_ids.estimated_installation_date')
     def _compute_installation_amount(self):
         for rec in self:
-            rec.total_installation_days = sum(rec.bom_line_ids.mapped('estimated_installation_days'))
+            rec.total_installation_date = sum(rec.bom_line_ids.mapped('estimated_installation_date'))
+
+    @api.onchange('product_tmpl_id')
+    def onchange_product_tmpl_id(self):
+        if self.product_tmpl_id:
+            self.product_uom_id = self.product_tmpl_id.uom_id.id
+            if self.product_id.product_tmpl_id != self.product_tmpl_id:
+                self.product_id = False
+            self.bom_line_ids.bom_product_template_attribute_value_ids = False
+            self.operation_ids.bom_product_template_attribute_value_ids = False
+            self.byproduct_ids.bom_product_template_attribute_value_ids = False
+
+            domain = [('product_tmpl_id', '=', self.product_tmpl_id.id)]
+            if self.id.origin:
+                domain.append(('id', '!=', self.id.origin))
+        if self._context.get('default_name', False):
+            self.code = self._context['default_name']
+
 
     @api.depends('bom_line_ids.price_unit', 'bom_line_ids.product_qty', 'bom_line_ids.price_subtotal')
     def _compute_amount(self):
@@ -95,7 +112,7 @@ class MrpBomLine(models.Model):
     _inherit = 'mrp.bom.line'
 
     last_price = fields.Float(string='Last Price')
-    estimated_installation_days = fields.Float(string='Estimated Installation Date', readonly=True, store=True, )
+    estimated_installation_date = fields.Float(string='Estimated Installation Date', readonly=True, store=True, )
     attachments_count = fields.Integer(string='Attachment Count', compute='_compute_attachments_count')
     price_unit = fields.Float('Unit Price', required=True, default=0.0)
     price_subtotal = fields.Float('Subtotal', compute='_compute_price_subtotal', default=0.0)
@@ -125,9 +142,9 @@ class MrpBomLine(models.Model):
             return res
 
     @api.onchange('product_id', 'product_qty')
-    def _compute_installation_days(self):
+    def _compute_installation_date(self):
         res = self.product_id.product_tmpl_id.estimated_installation_date_tmpl * self.product_qty
-        self.estimated_installation_days = res
+        self.estimated_installation_date = res
 
     @api.onchange('product_id')
     def _onchange_product_id(self):

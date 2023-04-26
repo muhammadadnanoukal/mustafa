@@ -10,7 +10,8 @@
                     <field name="bom_id"
                            context="{'default_product_tmpl_id': product_template_id, 'new_product_variant':True}"
                            attrs="{'readonly': [('state', '!=', 'draft')]}"
-                           optional="show"/>
+                           optional="show"
+                           options="{'no_quick_create': True}"/>
                 </xpath>
 
                  <xpath expr="//group[@class='oe_subtotal_footer oe_right'][1]/field[1]" position="after">
