@@ -22,11 +22,9 @@ class SaleOrder(models.Model):
     def write(self, vals):
         res = super().write(vals)
         if vals.get('state',False) and self.opportunity_id:
-            if vals.get('state',False)!= 'cancel':
-                state = vals.get('state')
-                state = 'tentative approval' if state =='final approval' else state
-                self.opportunity_id.set_stage('sales_status', state)
-            else:
+            if vals.get('state', False) == 'final approval':
+                pass
+            elif vals.get('state', False) == 'cancel':
                 production_ids = self.env['mrp.production'].search(
                     [('id', 'in', self.mrp_production_ids.ids), ('state', 'not in', ['draft', 'cancel'])])
                 # check if there is an production order in progress related by this sale order
@@ -35,5 +33,7 @@ class SaleOrder(models.Model):
                         "There is one or more production order called from this sale order\n"
                         "Please, cancel production order before cancel operation"))
                 self.opportunity_id.set_stage()
+            else:
+                self.opportunity_id.set_stage('sales_status', vals.get('state'))
 
         return res
