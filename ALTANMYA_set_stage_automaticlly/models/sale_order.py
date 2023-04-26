@@ -23,7 +23,9 @@ class SaleOrder(models.Model):
         res = super().write(vals)
         if vals.get('state',False) and self.opportunity_id:
             if vals.get('state',False)!= 'cancel':
-                self.opportunity_id.set_stage('sales_status', vals.get('state',False))
+                state = vals.get('state')
+                state = 'tentative approval' if state =='final approval' else state
+                self.opportunity_id.set_stage('sales_status', state)
             else:
                 production_ids = self.env['mrp.production'].search(
                     [('id', 'in', self.mrp_production_ids.ids), ('state', 'not in', ['draft', 'cancel'])])

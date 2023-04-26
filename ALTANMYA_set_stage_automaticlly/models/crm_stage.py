@@ -15,7 +15,7 @@ class CrmStage(models.Model):
     sales_status_selection = fields.Selection([
         ('draft', "Quotation"),
         ('sent', "Quotation Sent"),
-        ('tentative/final approval', 'Tentative/Final Approval'),
+        ('tentative approval', 'Tentative/Final Approval'),
         ('sale', "Sales Order"),
         ('done', "Locked"),
         ('cancel', "Cancelled"),
