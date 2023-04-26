@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
-    estimated_installation_days_total = fields.Float(string="Estimated Installation Days", store=True, tracking=4,
+    estimated_installation_date_total = fields.Float(string="Estimated Installation Date", store=True, tracking=4,
                                                      readonly=True, compute='_compute_installation_amounts')
 
 
@@ -25,7 +25,7 @@ class SaleOrder(models.Model):
     def _compute_installation_amounts(self):
         for order in self:
             order_lines = order.order_line.filtered(lambda x: not x.display_type)
-            order.estimated_installation_days_total = sum(order_lines.mapped('total_installation_date'))
+            order.estimated_installation_date_total = sum(order_lines.mapped('total_installation_date'))
 
 class SaleOrderLine(models.Model):
     _inherit = "sale.order.line"
@@ -34,13 +34,11 @@ class SaleOrderLine(models.Model):
         'mrp.bom', 'Component', readonly=False,
         domain="""[
         '&',
-        '&',
             '|',
                 ('company_id', '=', False),
                 ('company_id', '=', company_id),
             '&',
                ('product_tmpl_id','=',product_template_id),
-        ('product_id','!=',False),
         ('worked', '=', True)]""",
         check_company=True, compute='_compute_bom_id', store=True, precompute=True,
         help="Bill of Materials allow you to define the list of required components to make a finished product.")
@@ -48,7 +46,7 @@ class SaleOrderLine(models.Model):
     qty_to_deliver = fields.Float(compute='_compute_qty_to_deliver', digits='Product Unit of Measure')
     display_qty_widget = fields.Boolean(compute='_compute_qty_to_deliver')
     total_installation_date = fields.Float('Total Installation Date',
-                                             store=True, compute='_compute_estimated_installation_days_total')
+                                             store=True, compute='_compute_estimated_installation_date_total')
 
     pricelist_id = fields.Many2one('product.pricelist', 'Pricelist', related="order_id.pricelist_id", store=True,
                                    readonly=False)
@@ -62,7 +60,8 @@ class SaleOrderLine(models.Model):
                 sol.bom_id = False
                 continue
             boms_by_product = self.env['mrp.bom'].with_context(active_test=True, just_worked=True)._bom_find(sol.product_id,
-                                                                                           company_id=sol.company_id.id)
+                                                                                           company_id=sol.company_id.id,
+                                                                                           bom_type='normal')
             if not sol.bom_id or sol.bom_id.product_tmpl_id != sol.product_template_id or (
                     sol.bom_id.product_id and sol.bom_id.product_id != sol.product_id):
                 bom = boms_by_product[sol.product_id]
@@ -71,8 +70,7 @@ class SaleOrderLine(models.Model):
     @api.onchange('bom_id')
     def _onchange_bom_id(self):
         for record in self:
-            if record.bom_id and record.bom_id.product_id:
-                record.product_id = record.bom_id.product_id
+            record.product_id = record.bom_id.product_id
 
     @api.onchange('price_unit')
     def _onchange_total_amount(self):
@@ -81,10 +79,25 @@ class SaleOrderLine(models.Model):
                 line.price_unit = line.bom_id.total_amount
 
     @api.onchange('product_uom_qty', 'bom_id')
-    def _compute_estimated_installation_days_total(self):
+    def _compute_estimated_installation_date_total(self):
         for rec in self:
-            rec.total_installation_date = rec.bom_id.total_installation_date
+            rec.total_installation_date = rec.bom_id.total_installation_days
             rec.total_installation_date = rec.total_installation_date * rec.product_uom_qty
+
+    @api.onchange('product_template_id', 'bom_id')
+    def onchange_product_template_id(self):
+        for line in self:
+            return {'domain': {'bom_id': ['|', ('product_tmpl_id', '=', line.product_template_id.id), (
+                'byproduct_ids.product_id.product_tmpl_id', '=', line.product_template_id.id)]}}
+
+    @api.onchange('bom_id')
+    def _onchange_bom_id(self):
+        self.bom_id.sequence = 0
+        seq_num = 1
+        for bom in self.product_template_id.bom_ids:
+            if bom.id != self.bom_id.id:
+                bom.sequence = seq_num
+                seq_num += 1
 
     @api.depends('product_uom_qty', 'qty_delivered', 'product_id', 'state')
     def _compute_qty_to_deliver(self):
@@ -109,10 +122,14 @@ class SaleOrderLine(models.Model):
                     bom_id = [line.bom_id.id] if line.bom_id else False
                     boms = \
                         boms._bom_find(line.product_id, company_id=line.company_id.id,
-                                       bom_type=['phantom'])[line.product_id]
-                relevant_bom = boms.filtered(lambda b: (b.type == 'phantom') and
+                                       bom_type=['phantom'],
+                                       bom_ids=bom_id)[
+                            line.product_id]
+                relevant_bom = boms.filtered(
+                    lambda b: (b.type == 'phantom') and
                               (b.product_id == line.product_id or
-                               ( b.product_tmpl_id == line.product_id.product_tmpl_id and not b.product_id)))
+                               (
+                                       b.product_tmpl_id == line.product_id.product_tmpl_id and not b.product_id)))
                 if relevant_bom:
                     line.display_qty_widget = False
                     continue

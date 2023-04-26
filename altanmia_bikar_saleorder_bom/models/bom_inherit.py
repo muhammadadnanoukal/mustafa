@@ -10,14 +10,14 @@ class MrpBom(models.Model):
     code = fields.Char('Reference')
     pricing_type_square = fields.Boolean('Square Meter', default=True, )
     pricing_type_component = fields.Boolean('Component', default=False, )
-    total_installation_date = fields.Float('Total Installation Date', compute='_compute_installation_amount',
+    total_installation_days = fields.Float('Total Installation Date', compute='_compute_installation_amount',
                                            store=True, tracking=True)
     total_amount = fields.Float('Total Amount', compute='_compute_amount', store=True, tracking=True)
 
     @api.depends('bom_line_ids.estimated_installation_days')
     def _compute_installation_amount(self):
         for rec in self:
-            rec.total_installation_date = sum(rec.bom_line_ids.mapped('estimated_installation_days'))
+            rec.total_installation_days = sum(rec.bom_line_ids.mapped('estimated_installation_days'))
 
     @api.depends('bom_line_ids.price_unit', 'bom_line_ids.product_qty', 'bom_line_ids.price_subtotal')
     def _compute_amount(self):
@@ -30,22 +30,6 @@ class MrpBom(models.Model):
             if line.product_id:
                 line.price_unit = line.compute_price_unit()
 
-    @api.onchange('product_tmpl_id')
-    def onchange_product_tmpl_id(self):
-        if self.product_tmpl_id:
-            self.product_uom_id = self.product_tmpl_id.uom_id.id
-            if self.product_id.product_tmpl_id != self.product_tmpl_id:
-                self.product_id = False
-            self.bom_line_ids.bom_product_template_attribute_value_ids = False
-            self.operation_ids.bom_product_template_attribute_value_ids = False
-            self.byproduct_ids.bom_product_template_attribute_value_ids = False
-
-            domain = [('product_tmpl_id', '=', self.product_tmpl_id.id)]
-            if self.id.origin:
-                domain.append(('id', '!=', self.id.origin))
-        if self._context.get('default_name', False):
-            self.code = self._context['default_name']
-
     @api.model
     def _bom_find_domain(self, products, picking_type=None, company_id=False, bom_type=False):
         domain = super(MrpBom, self)._bom_find_domain(products, picking_type, company_id, bom_type)
@@ -56,10 +40,12 @@ class MrpBom(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            self.env['mrp.bom'].search([('product_id','=',vals.get('product_id', False)),('type','=',vals.get('type','normal')),('worked', '=', True)]).write({'worked':False})
+            self.env['mrp.bom'].search([('product_id','=',vals['product_id']),('type','=',vals['type']),('worked', '=', True)]).write({'worked':False})
             vals['worked'] = True
 
             if self.env.context.get("new_product_variant", False):
+
+
                 attr = self.env['product.attribute'].search([('name','=','BOM')], limit=1)
                 if not attr:
                     attr = self.env['product.attribute'].create({'name': 'BOM'})
@@ -82,6 +68,7 @@ class MrpBom(models.Model):
                 template = self.env['product.template'].browse(vals['product_tmpl_id'])
                 value = self._get_product_template_attribute_value(variant_value, template)
                 product = template._get_variant_for_combination(value)
+                print("new product variant asked to create", value, product, variant_value, attr_value_line)
                 vals['product_id'] = product.id
 
 
@@ -108,16 +95,38 @@ class MrpBomLine(models.Model):
     _inherit = 'mrp.bom.line'
 
     last_price = fields.Float(string='Last Price')
-    estimated_installation_days = fields.Float(string='Estimated Installation Days', readonly=True, store=True, )
+    estimated_installation_days = fields.Float(string='Estimated Installation Date', readonly=True, store=True, )
     attachments_count = fields.Integer(string='Attachment Count', compute='_compute_attachments_count')
     price_unit = fields.Float('Unit Price', required=True, default=0.0)
     price_subtotal = fields.Float('Subtotal', compute='_compute_price_subtotal', default=0.0)
     check_field = fields.Boolean('Check', compute='get_user')
 
+    @api.onchange('product_id', 'bom_id.pricing_type_component')
+    def set_product_domain(self):
+        product_ids = self.env['product.product'].search(['|', '&',
+                                                          ('pricing_type_component_tmpl', '=', True),
+                                                          ('pricing_type_component_tmpl', '=',
+                                                           self.bom_id.pricing_type_component),
+                                                          '&',
+                                                          ('pricing_type_square_tmpl', '=', True),
+                                                          ('pricing_type_square_tmpl', '=',
+                                                           self.bom_id.pricing_type_square)]).ids
+        res = {}
+        if self.bom_id.type in ['assembled', 'custom_price']:
+            res['domain'] = {'product_id': [('id', 'in', product_ids),
+                                            '|',
+                                            ('company_id', '=', False),
+                                            ('company_id', '=', self.company_id.id)]}
+            return res
+        else:
+            res['domain'] = {'product_id': ['|',
+                                            ('company_id', '=', False),
+                                            ('company_id', '=', self.company_id.id)]}
+            return res
 
     @api.onchange('product_id', 'product_qty')
-    def _compute_installation_date(self):
-        res = self.product_id.product_tmpl_id.estimated_installation_days_tmpl * self.product_qty
+    def _compute_installation_days(self):
+        res = self.product_id.product_tmpl_id.estimated_installation_date_tmpl * self.product_qty
         self.estimated_installation_days = res
 
     @api.onchange('product_id')

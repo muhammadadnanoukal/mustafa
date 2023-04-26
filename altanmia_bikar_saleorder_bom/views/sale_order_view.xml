@@ -7,21 +7,14 @@
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//tree[1]/field[@name='product_template_id']" position="after">
-                    <field name="pricelist_id" invisible="1"/>
                     <field name="bom_id"
-                           context="{
-                                'default_product_tmpl_id': product_template_id,
-                                'new_product_variant':True,
-                                'form_view_ref': 'altanmia_bikar_saleorder_bom.mrp_bom_form_view_inherit_extension',
-                                'default_pricelist_id': pricelist_id,}"
+                           context="{'default_product_tmpl_id': product_template_id, 'new_product_variant':True}"
                            attrs="{'readonly': [('state', '!=', 'draft')]}"
-                           optional="show"
-                           options="{'no_quick_create': True}"/>
-
+                           optional="show"/>
                 </xpath>
 
                  <xpath expr="//group[@class='oe_subtotal_footer oe_right'][1]/field[1]" position="after">
-                    <field name="estimated_installation_days_total" force_save="1" colspan="1" readonly="1"/>
+                    <field name="estimated_installation_date_total" force_save="1" colspan="1" readonly="1"/>
                 </xpath>
 
                 <xpath expr="//tree[1]/field[@name='product_uom_qty']" position="after">
