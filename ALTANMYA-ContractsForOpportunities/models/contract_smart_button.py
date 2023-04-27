@@ -50,10 +50,10 @@ class CrmLead(models.Model):
         # action['context']['search_default_draft'] = 1
         action['domain'] = expression.AND(
             [[('opportunity_id', '=', self.id)], [('state', 'in', ('draft', 'sent', 'cancel', 'tentative approval', 'final approval', 'sale'))]])
-        quotations = self.order_ids.filtered_domain(self._get_lead_quotation_domain())
-        if len(quotations) == 1:
-            action['views'] = [(self.env.ref('sale.view_order_form').id, 'form')]
-            action['res_id'] = quotations.id
+        #quotations = self.order_ids.filtered_domain(self._get_lead_quotation_domain())
+        #if len(quotations) == 1:
+        #    action['views'] = [(self.env.ref('sale.view_order_form').id, 'form')]
+        #    action['res_id'] = quotations.id
         return action
 
     @api.depends('order_ids.state', 'order_ids.currency_id', 'order_ids.amount_untaxed', 'order_ids.date_order',
