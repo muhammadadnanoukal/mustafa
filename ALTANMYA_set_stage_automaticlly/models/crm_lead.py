@@ -67,31 +67,22 @@ class CrmLead(models.Model):
                 if production_ids:
                     return production_ids
             return False
+
         if stage.state == 'operation_type_sales':
-            orders = self.env['sale.order'].search(
-                [('state', 'in', ['sale', 'done']), ('opportunity_id', '=', self.id)])
+            orders = self.order_ids.filtered_domain(self._get_lead_sale_order_domain())
             for order in orders:
-                production_ids = self.env['mrp.production'].search([('state', '=', stage.manufacturing_selection),
-                                                                    ('id', 'in', order.mrp_production_ids.ids)])
-                for production_order in production_ids:
-                    picking_ids = self.env['stock.picking'].search([('group_id', '=', production_order.procurement_group_id.id),
-                                                                    ('picking_type_id','=',stage.operation_type_sales),
-                                                                    ('state','=','done')])
-                    if picking_ids:
-                        return picking_ids
+                if order.picking_ids.filtered_domain([('picking_type_id','=',stage.operation_type_sales.id),
+                                                                    ('state','=','done')]):
+                    return True
             return False
+
         if stage.state == 'operation_type_manufacturing':
-            orders = self.env['sale.order'].search(
-                [('state', 'in', ['sale', 'done']), ('opportunity_id', '=', self.id)])
+            orders = self.order_ids.filtered_domain(self._get_lead_sale_order_domain())
             for order in orders:
-                production_ids = self.env['mrp.production'].search([('state', '=', stage.manufacturing_selection),
-                                                                    ('id', 'in', order.mrp_production_ids.ids)])
-                for production_order in production_ids:
-                    picking_ids = self.env['stock.picking'].search([('group_id', '=', production_order.procurement_group_id.id),
-                                                                    ('picking_type_id','=',stage.operation_type_manufacturing),
-                                                                    ('state','=','done')])
-                    if picking_ids:
-                        return picking_ids
+                for production_order in order.mrp_production_ids:
+                    if production_order.picking_ids.filtered_domain([('picking_type_id', '=', stage.operation_type_manufacturing.id),
+                                                          ('state', '=', 'done')]):
+                        return True
             return False
         if not stage.state:
             return True
